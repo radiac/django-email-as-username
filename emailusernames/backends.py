@@ -9,6 +9,10 @@ class EmailAuthBackend(ModelBackend):
     """Allow users to log in with their email address"""
 
     def authenticate(self, email=None, password=None):
+        # Never allow anyone without an email to log in, regardless of settings
+        if not email:
+            return None
+        
         try:
             user = get_user(email)
             if user.check_password(password):

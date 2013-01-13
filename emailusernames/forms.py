@@ -5,7 +5,7 @@ from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
 from emailusernames.utils import user_exists
-
+from emailusernames import settings
 
 ERROR_MESSAGE = _("Please enter a correct email and password. ")
 ERROR_MESSAGE_RESTRICTED = _("You do not have permission to access the admin.")
@@ -81,6 +81,10 @@ class EmailUserCreationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super(EmailUserCreationForm, self).__init__(*args, **kwargs)
         del self.fields['username']
+        
+        # Make email optional
+        if settings.ALLOW_EMPTY:
+            self.fields['email'].required = False
 
     def clean_email(self):
         email = self.cleaned_data["email"]
@@ -101,3 +105,7 @@ class EmailUserChangeForm(UserChangeForm):
     def __init__(self, *args, **kwargs):
         super(EmailUserChangeForm, self).__init__(*args, **kwargs)
         del self.fields['username']
+        
+        # Make email optional
+        if settings.ALLOW_EMPTY:
+            self.fields['email'].required = False

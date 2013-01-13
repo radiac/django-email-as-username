@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from emailusernames.forms import EmailAdminAuthenticationForm
 from emailusernames.utils import _email_to_username
 
+from emailusernames import settings
+
 
 # Horrible monkey patching.
 # User.username always presents as the email, but saves as a hash of the email.
@@ -12,13 +14,30 @@ from emailusernames.utils import _email_to_username
 def user_init_patch(self, *args, **kwargs):
     super(User, self).__init__(*args, **kwargs)
     self._username = self.username
-    self.username = self.email
+    # If no email, leave username field as loaded from the db
+    if self.email:
+        self.username = self.email
 
 
 def user_save_patch(self, *args, **kwargs):
-    self.username = _email_to_username(self.email)
+    # If no email, ensure username is a unique string
+    if settings.ALLOW_EMPTY and not self.email:
+        if not self.username:
+            self.username = '%s%s' % (settings.EMPTY_PREFIX, self.pk or '')
+        # If no email but has a username, leave for other auth backends
+    else:
+        self.username = _email_to_username(self.email)
+    
     super(User, self).save_base(*args, **kwargs)
-    self.username = self.email
+    
+    if settings.ALLOW_EMPTY and not self.email:
+        # Convert temporary to permanent
+        if self.username == settings.EMPTY_PREFIX:
+            self.username = '%s%s' % (settings.EMPTY_PREFIX, self.pk)
+            super(User, self).save_base(*args, **kwargs)
+            
+    else:
+        self.username = self.email
 
 
 original_init = User.__init__

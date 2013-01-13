@@ -137,6 +137,27 @@ the view.
         ...
     )
 
+Users without e-mail addresses
+------------------------------
+
+If you need to allow accounts without e-mail addresses, you can enable empty
+email support by modifying your project’s `settings.py` file:
+
+`EMAILUSERNAMES_ALLOW_EMPTY` (default: `False`) - if set to True, empty e-mail
+addresses will be allowed
+
+`EMAILUSERNAMES_EMPTY_PREFIX' (default: '-') - a prefix used when creating
+unique internal usernames for new users without e-mail addresses, since the
+User.username field is required. The full username is the prefix followed by
+the `user.pk`, e.g. `-27`; the default will usually be fine.
+
+When empty email addresses are allowed, `emailusernames` will allow empty email
+addresses in the `EmailUserCreationForm` and `EmailUserChangeForm`.
+
+Users without an email address will not be able to log in using the
+`EmailAuthBackend`- their accounts will effectively be disabled until their
+email address is set by an admin (although it will not affect other backends).
+
 
 Management commands
 ===================
@@ -157,9 +178,16 @@ Migrating existing projects
 `emailusernames` includes a function you can use to easily migrate existing
 projects.
 
-The migration will refuse to run if there are any users that it cannot migrate
-either because they do not have an email set, or because there exists a
-duplicate email for more than one user.
+By default, the migration will refuse to run if there are any users that it
+cannot migrate either because they do not have an email set, or because there
+exists a duplicate email for more than one user.
+
+If `EMAILUSERNAMES.ALLOW_EMPTY` is `True`, when migrating users without an
+email address their existing username will be maintained, so it can be
+accessed by querying `django.contrib.auth.models.User` directly. When an
+email address is set for them, their username will be replaced by an email
+hash as normal.
+
 
 There are two ways you might choose to run this migration.
 

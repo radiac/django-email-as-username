@@ -6,6 +6,8 @@ import sys
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 
+from emailusernames import settings
+
 
 # We need to convert emails to hashed versions when we store them in the
 # username field.  We can't just store them directly, or we'd be limited
@@ -24,6 +26,10 @@ def get_user(email, queryset=None):
     Return the user with given email address.
     Note that email address matches are case-insensitive.
     """
+    # Can't guarantee a unique match without email
+    if settings.ALLOW_EMPTY and not email:
+        return User.DoesNotExist('User cannot be matched without email')
+    
     if queryset is None:
         queryset = User.objects
     return queryset.get(username=_email_to_username(email))
@@ -34,6 +40,9 @@ def user_exists(email, queryset=None):
     Return True if a user with given email address exists.
     Note that email address matches are case-insensitive.
     """
+    if settings.ALLOW_EMPTY and not email:
+        return False
+    
     try:
         get_user(email, queryset)
     except User.DoesNotExist:
@@ -46,13 +55,32 @@ def create_user(email, password=None, is_staff=None, is_active=None):
     Create a new user with the given email.
     Use this instead of `User.objects.create_user`.
     """
-    try:
-        user = User.objects.create_user(email, email, password)
-    except IntegrityError, err:
-        if err.message == 'column username is not unique':
-            raise IntegrityError('user email is not unique')
-        raise
-
+    if not email:
+        if settings.ALLOW_EMPTY:
+            # Create with temporary username if no e-mail address
+            try:
+                user = User.objects.create_user(
+                    settings.EMPTY_PREFIX, email, password
+                )
+            except IntegrityError, err:
+                if err.message == 'column username is not unique':
+                    raise IntegrityError('temporary username already in use')
+                raise
+                
+            # Make username unique if no e-mail
+            user.save()
+        else:
+            raise IntegrityError('user email is empty')
+        
+    else:
+        # Create with hashed e-mail as username
+        try:
+            user = User.objects.create_user(email, email, password)
+        except IntegrityError, err:
+            if err.message == 'column username is not unique':
+                raise IntegrityError('user email is not unique')
+            raise
+        
     if is_active is not None or is_staff is not None:
         if is_active is not None:
             user.is_active = is_active
@@ -83,7 +111,11 @@ def migrate_usernames(stream=None, quiet=False):
     errors = []
     for user in User.objects.all():
         if not user.email:
-            errors.append("Cannot convert user '%s' because email is not "
+            if settings.ALLOW_EMPTY:
+                # Empty e-mail address ok - username will be updated by save
+                pass
+            else:
+                errors.append("Cannot convert user '%s' because email is not "
                           "set." % (user._username, ))
         elif user.email.lower() in emails:
             errors.append("Cannot convert user '%s' because email '%s' "
