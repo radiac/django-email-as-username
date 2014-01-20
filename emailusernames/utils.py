@@ -57,6 +57,9 @@ def create_user(email, password=None, is_staff=None, is_active=None):
     """
     if not email:
         if settings.ALLOW_EMPTY:
+            # Clear password to trigger set_unusable_password()
+            password = None
+            
             # Create with temporary username if no e-mail address
             try:
                 user = User.objects.create_user(
