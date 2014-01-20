@@ -22,7 +22,7 @@ def user_init_patch(self, *args, **kwargs):
 def user_save_patch(self, *args, **kwargs):
     # If no email, ensure username is a unique string
     if settings.ALLOW_EMPTY and not self.email:
-        if not self.username:
+        if not self.username or not self.username.startswith(settings.EMPTY_PREFIX):
             self.username = '%s%s' % (settings.EMPTY_PREFIX, self.pk or '')
         # If no email but has a username, leave for other auth backends
     else:
